@@ -102,10 +102,21 @@ local function is_cache_valid(entry_time, has_data)
   return (now - entry_time) < cache.ttl
 end
 
+--- Get the configured CLI command ('bd' or 'br')
+--- @return string CLI command name
+local function get_cli_cmd()
+  local ok, beads = pcall(require, "beads")
+  if ok and beads.get_config then
+    return beads.get_config().cli_cmd or "bd"
+  end
+  return "bd"
+end
+
 --- Check if beads is available
---- @return boolean True if 'bd' command is available
+--- @return boolean True if CLI command is available
 local function is_beads_available()
-  local result = os.execute("which bd > /dev/null 2>&1")
+  local cli = get_cli_cmd()
+  local result = os.execute("which " .. cli .. " > /dev/null 2>&1")
   return result == 0 or result == true
 end
 
@@ -116,8 +127,9 @@ end
 --- @return table|nil Parsed JSON output or nil on error
 --- @return string|nil Error message if command failed
 local function run_command(cmd, args, json_flag)
+  local cli = get_cli_cmd()
   if not is_beads_available() then
-    return nil, "Beads CLI not found. Please install 'bd' or ensure it's in your PATH"
+    return nil, "Beads CLI not found. Please install '" .. cli .. "' or ensure it's in your PATH"
   end
 
   -- Default to JSON for most commands (unless explicitly disabled)
@@ -125,7 +137,7 @@ local function run_command(cmd, args, json_flag)
     json_flag = true
   end
 
-  local full_cmd = string.format("bd %s", cmd)
+  local full_cmd = string.format("%s %s", cli, cmd)
 
   -- Add JSON flag
   if json_flag then
@@ -293,7 +305,9 @@ end
 --- @return boolean True if successful
 --- @return string|nil Error message
 function M.sync()
-  local output = run_command("sync")
+  -- br requires a mode flag; bd works without one
+  local args = get_cli_cmd() == "br" and { "--flush-only" } or nil
+  local output = run_command("sync", args)
 
   -- Invalidate all caches on sync
   if output then

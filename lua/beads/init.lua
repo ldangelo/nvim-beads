@@ -30,6 +30,7 @@ local defaults = {
   sidebar_enabled = false,  -- Use sidebar instead of floating window
   sidebar_position = "left", -- Position: "left" or "right"
   sidebar_width = 40,       -- Width of sidebar in columns
+  cli_cmd = "bd",           -- CLI command to use: "bd" (python) or "br" (rust)
 }
 
 -- Global configuration
