@@ -310,7 +310,10 @@ function M.show_task_list()
     windows.task_list_bufnr, windows.task_list_winid = windows.create_float_window()
   end
 
-  current_tasks = utils.normalize_response(tasks)
+  -- Clear and repopulate current_tasks (preserve table reference for keymap closures)
+  for k in pairs(current_tasks) do current_tasks[k] = nil end
+  local normalized = utils.normalize_response(tasks)
+  for i, t in ipairs(normalized) do current_tasks[i] = t end
 
   -- Apply filters to task list
   local filtered_tasks = filters.apply_filters(current_tasks, filter_state)
@@ -320,7 +323,8 @@ function M.show_task_list()
 
   -- Format and display tasks
   local lines = { "# Beads Tasks" }
-  task_lines_map = {} -- Reset the map
+  -- Clear task_lines_map (preserve table reference for keymap closures)
+  for k in pairs(task_lines_map) do task_lines_map[k] = nil end
 
   -- Add status bar with task count and filter info
   local status_bar = "Tasks: " .. #filtered_tasks .. "/" .. #current_tasks
