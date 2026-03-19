@@ -26,18 +26,18 @@
 
 ### Checklist
 
-- [ ] TASK-001: Extract `get_task_at_cursor` helper
-- [ ] TASK-002: Implement cursor preservation in `refresh_task_list`
-- [ ] TASK-003: Add close-task keymap (`x`)
-- [ ] TASK-004: Add change-status keymap (`s`)
-- [ ] TASK-005: Add change-priority keymap (`p`)
-- [ ] TASK-006: Add quick in-progress keymap (`i`)
-- [ ] TASK-007: Implement help toggle (`?`)
-- [ ] TASK-008: Update status bar with help hint
-- [ ] TASK-009: Unit tests for `get_task_at_cursor`
-- [ ] TASK-010: Unit tests for cursor preservation
-- [ ] TASK-011: Unit tests for action keymaps
-- [ ] TASK-012: Unit tests for help toggle
+- [x] TASK-001: Extract `get_task_at_cursor` helper
+- [x] TASK-002: Implement cursor preservation in `refresh_task_list`
+- [x] TASK-003: Add close-task keymap (`x`)
+- [x] TASK-004: Add change-status keymap (`s`)
+- [x] TASK-005: Add change-priority keymap (`p`)
+- [x] TASK-006: Add quick in-progress keymap (`i`)
+- [x] TASK-007: Implement help toggle (`?`)
+- [x] TASK-008: Update status bar with help hint
+- [x] TASK-009: Unit tests for `get_task_at_cursor`
+- [x] TASK-010: Unit tests for cursor preservation
+- [x] TASK-011: Unit tests for action keymaps
+- [x] TASK-012: Unit tests for help toggle
 - [ ] TASK-013: Integration validation (manual)
 
 ---
