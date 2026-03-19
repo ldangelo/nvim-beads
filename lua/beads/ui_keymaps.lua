@@ -193,6 +193,150 @@ function M.setup_task_list_keymaps(ui_module, bufnr, windows, current_tasks, tas
       vim.notify("Search cleared", vim.log.levels.INFO)
     end
   end, opts)
+
+  -- Close task with 'x'
+  vim.keymap.set("n", "x", function()
+    local task, _ = ui_module.get_task_at_cursor(task_lines_map, current_tasks, windows.task_list_winid)
+    if not task then return end
+
+    -- Check if already closed
+    if task.status == "closed" or task.status == "complete" then
+      vim.notify("Task already closed", vim.log.levels.WARN)
+      return
+    end
+
+    local title = task.title or task.name or task.id
+    vim.ui.select({ "Yes", "No" }, {
+      prompt = "Close task " .. task.id .. "? (" .. title .. ")",
+    }, function(choice)
+      if choice == "Yes" then
+        local cli = require("beads.cli")
+        local result, err = cli.close(task.id)
+        if result then
+          vim.notify("Closed: " .. title, vim.log.levels.INFO)
+          ui_module.refresh_task_list_with_cursor(task.id)
+        else
+          vim.notify("Failed to close task: " .. (err or "unknown"), vim.log.levels.ERROR)
+        end
+      end
+    end)
+  end, opts)
+
+  -- Change status with 's'
+  vim.keymap.set("n", "s", function()
+    local task, _ = ui_module.get_task_at_cursor(task_lines_map, current_tasks, windows.task_list_winid)
+    if not task then return end
+
+    local current_status = task.status or "open"
+    local statuses = { "open", "in_progress", "closed", "blocked", "deferred" }
+
+    -- Format items with current indicator
+    local items = {}
+    for _, status in ipairs(statuses) do
+      if status == current_status then
+        table.insert(items, status .. " (current)")
+      else
+        table.insert(items, status)
+      end
+    end
+
+    vim.ui.select(items, {
+      prompt = "Set status for " .. task.id .. ":",
+    }, function(choice)
+      if not choice then return end
+
+      -- Strip " (current)" suffix if present
+      local selected_status = choice:gsub(" %(current%)$", "")
+
+      -- Skip if same status
+      if selected_status == current_status then return end
+
+      local cli = require("beads.cli")
+      local result, err = cli.update(task.id, { status = selected_status })
+      if result then
+        local title = task.title or task.name or task.id
+        vim.notify("Status → " .. selected_status .. ": " .. title, vim.log.levels.INFO)
+        ui_module.refresh_task_list_with_cursor(task.id)
+      else
+        vim.notify("Failed to update status: " .. (err or "unknown"), vim.log.levels.ERROR)
+      end
+    end)
+  end, opts)
+
+  -- Change priority with 'p'
+  vim.keymap.set("n", "p", function()
+    local task, _ = ui_module.get_task_at_cursor(task_lines_map, current_tasks, windows.task_list_winid)
+    if not task then return end
+
+    local current_priority = task.priority or "P2"
+    local priorities = {
+      { value = "P0", label = "P0 — Critical" },
+      { value = "P1", label = "P1 — High" },
+      { value = "P2", label = "P2 — Medium" },
+      { value = "P3", label = "P3 — Low" },
+      { value = "P4", label = "P4 — Backlog" },
+    }
+
+    -- Format items with current indicator
+    local items = {}
+    for _, p in ipairs(priorities) do
+      if p.value == current_priority then
+        table.insert(items, p.label .. " (current)")
+      else
+        table.insert(items, p.label)
+      end
+    end
+
+    vim.ui.select(items, {
+      prompt = "Set priority for " .. task.id .. ":",
+    }, function(choice)
+      if not choice then return end
+
+      -- Extract priority value (first 2 chars: "P0", "P1", etc.)
+      local selected_priority = choice:sub(1, 2)
+
+      -- Skip if same priority
+      if selected_priority == current_priority then return end
+
+      local cli = require("beads.cli")
+      local result, err = cli.update(task.id, { priority = selected_priority })
+      if result then
+        local title = task.title or task.name or task.id
+        vim.notify("Priority → " .. selected_priority .. ": " .. title, vim.log.levels.INFO)
+        ui_module.refresh_task_list_with_cursor(task.id)
+      else
+        vim.notify("Failed to update priority: " .. (err or "unknown"), vim.log.levels.ERROR)
+      end
+    end)
+  end, opts)
+
+  -- Quick set in-progress with 'i'
+  vim.keymap.set("n", "i", function()
+    local task, _ = ui_module.get_task_at_cursor(task_lines_map, current_tasks, windows.task_list_winid)
+    if not task then return end
+
+    local current_status = task.status or "open"
+    if current_status == "in_progress" then
+      vim.notify("Already in progress", vim.log.levels.WARN)
+      return
+    end
+
+    local cli = require("beads.cli")
+    local result, err = cli.update(task.id, { status = "in_progress" })
+    if result then
+      local title = task.title or task.name or task.id
+      vim.notify("→ In Progress: " .. title, vim.log.levels.INFO)
+      ui_module.refresh_task_list_with_cursor(task.id)
+    else
+      vim.notify("Failed to update status: " .. (err or "unknown"), vim.log.levels.ERROR)
+    end
+  end, opts)
+
+  -- Toggle help with '?'
+  vim.keymap.set("n", "?", function()
+    ui_module.toggle_help()
+    ui_module.refresh_task_list()
+  end, opts)
 end
 
 return M

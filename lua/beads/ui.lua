@@ -29,6 +29,12 @@ local current_tasks = {}
 local task_lines_map = {} -- Map from line number to task ID for navigation
 local sidebar_visible = false -- Track sidebar visibility for toggle
 
+-- Help toggle state
+local help_visible = false
+
+-- Cursor restoration target (set before refresh, consumed after)
+local cursor_restore_task_id = nil
+
 -- Filter state
 local filter_state = {
   priority = {},  -- P1, P2, P3
@@ -48,6 +54,95 @@ local sync_spinner_index = 0
 function M.init()
   -- Create autocommand group for beads
   vim.api.nvim_create_augroup("beads_ui", { clear = true })
+end
+
+--- Get the task object and line number at the current cursor position
+--- @param lines_map table Map from line number to task ID
+--- @param tasks table List of current task objects
+--- @param winid integer Window ID to get cursor from
+--- @return table|nil task The task object at cursor, or nil
+--- @return integer line_nr The current line number
+function M.get_task_at_cursor(lines_map, tasks, winid)
+  local line_nr = vim.api.nvim_win_get_cursor(winid)[1]
+  local task_id = lines_map[line_nr]
+  if not task_id then
+    return nil, line_nr
+  end
+  for _, task in ipairs(tasks) do
+    if task.id == task_id then
+      return task, line_nr
+    end
+  end
+  return nil, line_nr
+end
+
+--- Toggle help visibility
+--- @return boolean New help_visible state
+function M.toggle_help()
+  help_visible = not help_visible
+  return help_visible
+end
+
+--- Get help visibility state
+--- @return boolean
+function M.is_help_visible()
+  return help_visible
+end
+
+--- Refresh task list and restore cursor to a specific task
+--- @param target_task_id string|nil Task ID to restore cursor to after refresh
+function M.refresh_task_list_with_cursor(target_task_id)
+  -- Store the target for post-refresh restoration
+  cursor_restore_task_id = target_task_id
+
+  -- Close preview when refreshing (existing behavior)
+  if windows.preview_winid and vim.api.nvim_win_is_valid(windows.preview_winid) then
+    vim.api.nvim_win_close(windows.preview_winid, true)
+    windows.preview_winid = nil
+  end
+
+  if windows.task_list_winid and vim.api.nvim_win_is_valid(windows.task_list_winid) then
+    M.show_task_list()
+    -- After show_task_list rebuilds the buffer, restore cursor
+    M._restore_cursor_position()
+  end
+end
+
+--- Restore cursor position to target task after refresh
+--- @private
+function M._restore_cursor_position()
+  if not cursor_restore_task_id then return end
+  if not windows.task_list_winid or not vim.api.nvim_win_is_valid(windows.task_list_winid) then
+    cursor_restore_task_id = nil
+    return
+  end
+
+  -- Find the target task in the refreshed map
+  for line_nr, task_id in pairs(task_lines_map) do
+    if task_id == cursor_restore_task_id then
+      vim.api.nvim_win_set_cursor(windows.task_list_winid, { line_nr, 0 })
+      cursor_restore_task_id = nil
+      return
+    end
+  end
+
+  -- Task not found (was removed from view) — clamp to nearest valid line
+  local buf_line_count = vim.api.nvim_buf_line_count(windows.task_list_bufnr)
+  local cursor_line = vim.api.nvim_win_get_cursor(windows.task_list_winid)[1]
+  cursor_line = math.min(cursor_line, buf_line_count)
+
+  -- Find nearest task line from current position
+  for offset = 0, buf_line_count do
+    if task_lines_map[cursor_line + offset] then
+      vim.api.nvim_win_set_cursor(windows.task_list_winid, { cursor_line + offset, 0 })
+      break
+    elseif cursor_line - offset >= 1 and task_lines_map[cursor_line - offset] then
+      vim.api.nvim_win_set_cursor(windows.task_list_winid, { cursor_line - offset, 0 })
+      break
+    end
+  end
+
+  cursor_restore_task_id = nil
 end
 
 --- Toggle sidebar visibility
@@ -235,9 +330,11 @@ function M.show_task_list()
   if filters.has_active_filters(filter_state) then
     status_bar = status_bar .. " | Filters: " .. filters.get_filter_description(filter_state)
   end
-  -- Add sync indicator to the right side
+  -- Add sync indicator and help hint to the right side
   local sync_indicator = get_sync_indicator()
-  table.insert(lines, "─ " .. status_bar .. " | " .. sync_indicator .. " " .. string.rep("─", math.max(0, 78 - #status_bar - #sync_indicator - 3)))
+  local help_hint = "? for help"
+  local bar_content = status_bar .. " | " .. sync_indicator .. " | " .. help_hint
+  table.insert(lines, "─ " .. bar_content .. " " .. string.rep("─", math.max(0, 78 - #bar_content - 3)))
   table.insert(lines, "")
 
   if #filtered_tasks == 0 then
@@ -262,6 +359,14 @@ function M.show_task_list()
     end
     table.insert(lines, "")
     table.insert(lines, "(" .. #filtered_tasks .. "/" .. #current_tasks .. " tasks)")
+  end
+
+  -- Append help section if visible
+  if help_visible then
+    local help_lines = rendering.render_help_section()
+    for _, line in ipairs(help_lines) do
+      table.insert(lines, line)
+    end
   end
 
   vim.api.nvim_buf_set_lines(windows.task_list_bufnr, 0, -1, false, lines)

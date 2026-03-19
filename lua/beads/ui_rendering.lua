@@ -8,6 +8,9 @@ local utils = require("beads.utils")
 --- @param task table Task object
 --- @return boolean True if task has no dot in ID (parent)
 function M.is_parent_task(task)
+  if not task or not task.id then
+    return true
+  end
   return not task.id:match("%.")
 end
 
@@ -146,6 +149,25 @@ end
 function M.get_priority_highlight(priority)
   priority = priority or "P2"
   return "BeadsPriority" .. priority
+end
+
+--- Render help section lines showing available keymaps
+--- @return table Lines for the help section
+function M.render_help_section()
+  return {
+    "",
+    "─── Keymaps ──────────────────────────────",
+    "<CR>  Show detail     x  Close task",
+    "s     Set status      p  Set priority",
+    "i     Start (→ in_progress)",
+    "d     Delete task     r  Refresh",
+    "f     Filter          c  Clear filters",
+    "/     Search          ⌫  Clear search",
+    "j/k   Navigate        t  Toggle sidebar",
+    "</>   Sidebar width   ?  Toggle help",
+    "q     Quit",
+    "──────────────────────────────────────────",
+  }
 end
 
 return M
